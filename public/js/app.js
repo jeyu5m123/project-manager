@@ -2,24 +2,42 @@
   const COLORS = ['#DA5427', '#F26B42', '#B04315', '#4ADE80', '#2FA85A', '#FFB295', '#C74A1F', '#64C98C'];
   const PRIORITY_COLORS = { low: '#2E9E58', medium: '#B0703A', high: '#D6453D' };
 
-  var state = { user: null, projects: [], tasks: [], team: [], events: [] };
+  var state = { user: null, projects: [], archivedProjects: [], tasks: [], team: [], events: [] };
 
   function setState(key, val) { state[key] = val; }
+
+  function applyUser(u) {
+    if (!u) return;
+    state.user = u;
+    if (u.photo_url && !u.photo) u.photo = u.photo_url;
+    if (u.photoUrl && !u.photo) u.photo = u.photoUrl;
+  }
+
+  function loadUser() {
+    return API.get('/user').then(applyUser).catch(function () {
+      return new Promise(function (resolve) { setTimeout(resolve, 700); })
+        .then(function () { return API.get('/user'); })
+        .then(applyUser)
+        .catch(function () {});
+    });
+  }
 
   function loadAllData() {
     if (!API.isLoggedIn()) return Promise.resolve();
     return Promise.all([
-      API.get('/user').then(function (u) { state.user = u; if (u.photo_url && !u.photo) u.photo = u.photo_url; if (u.photoUrl && !u.photo) u.photo = u.photoUrl; }).catch(function () {}),
-      API.get('/projects').then(function (d) { state.projects = d; }).catch(function () {}),
-      API.get('/projects?archived=true').then(function (d) { state.archivedProjects = d; }).catch(function () {}),
-      API.get('/tasks').then(function (d) { state.tasks = d; }).catch(function () {}),
-      API.get('/team').then(function (d) { d.forEach(function(m) { if ((m.photo_url || m.photoUrl) && !m.photo) m.photo = m.photo_url || m.photoUrl; }); state.team = d; }).catch(function () {}),
-      API.get('/events').then(function (d) { state.events = d; }).catch(function () {}),
+      loadUser(),
+      API.get('/projects').then(function (d) { state.projects = Array.isArray(d) ? d : []; }).catch(function () {}),
+      API.get('/projects?archived=true').then(function (d) { state.archivedProjects = Array.isArray(d) ? d : []; }).catch(function () {}),
+      API.get('/tasks').then(function (d) { state.tasks = Array.isArray(d) ? d : []; }).catch(function () {}),
+      API.get('/team').then(function (d) { state.team = Array.isArray(d) ? d : []; state.team.forEach(function(m) { if ((m.photo_url || m.photoUrl) && !m.photo) m.photo = m.photo_url || m.photoUrl; }); }).catch(function () {}),
+      API.get('/events').then(function (d) { state.events = Array.isArray(d) ? d : []; }).catch(function () {}),
     ]);
   }
 
   function getInitials(name) {
-    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    return parts.map(function (w) { return w[0]; }).join('').toUpperCase().slice(0, 2);
   }
 
   function escapeHtml(value) {
@@ -159,12 +177,13 @@
     var badges = document.getElementById('drawer-badges');
     var content = document.getElementById('drawer-content');
     if (!content) return;
-    badges.innerHTML = '<span class="badge badge-info">Goal</span>';
+    if (badges) badges.innerHTML = '<span class="badge badge-info">Goal</span>';
     var isEdit = !!editGoal;
     content.innerHTML = '<div class="task-drawer-title-area"><input type="text" class="task-drawer-title" id="goal-name" placeholder="Goal name" value="' + (editGoal ? editGoal.name : '') + '" autocomplete="off"></div><div class="task-drawer-meta"><div class="task-drawer-meta-row"><span class="task-drawer-meta-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg>Target</span><input type="date" class="task-drawer-meta-value" id="goal-date" value="' + (editGoal ? editGoal.target_date || '' : '') + '"></div><div class="task-drawer-meta-row"><span class="task-drawer-meta-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Progress</span><input type="range" id="goal-progress" min="0" max="100" value="' + (editGoal ? editGoal.progress : 0) + '" style="width:120px;"><span id="goal-progress-label" style="font-size:var(--text-sm);min-width:30px;text-align:right;">' + (editGoal ? editGoal.progress : 0) + '%</span></div></div><div class="task-drawer-actions"><button class="btn btn-ghost" id="goal-cancel">Cancel</button><button class="btn btn-primary" id="goal-save">' + (isEdit ? 'Save' : 'Create') + '</button></div>';
     openDrawer();
     document.getElementById('goal-progress')?.addEventListener('input', function () {
-      document.getElementById('goal-progress-label').textContent = this.value + '%';
+      var label = document.getElementById('goal-progress-label');
+      if (label) label.textContent = this.value + '%';
     });
     document.getElementById('goal-cancel')?.addEventListener('click', closeDrawer);
     document.getElementById('goal-save')?.addEventListener('click', function () {
@@ -297,7 +316,8 @@
   function updateUserInfo() {
     const data = getData();
     if (!data.user) return;
-    const initials = getInitials(data.user.name);
+    const displayName = data.user.name || data.user.username || 'You';
+    const initials = getInitials(displayName);
     const hasPhoto = data.user.photo && data.user.photo.length > 0;
     const sb = document.getElementById('sidebar-user-avatar');
     const sn = document.getElementById('sidebar-user-name');
@@ -307,20 +327,20 @@
     const saImg = document.getElementById('settings-avatar-img');
     const si = document.getElementById('settings-name');
     applyAvatar(sb, hasPhoto ? data.user.photo : '', initials);
-    if (sn) sn.textContent = data.user.name;
+    if (sn) sn.textContent = displayName;
     applyAvatar(tn, hasPhoto ? data.user.photo : '', initials);
-    if (g) g.textContent = getGreeting() + ', ' + data.user.name.split(' ')[0];
+    if (g) g.textContent = getGreeting() + ', ' + displayName.split(' ')[0];
     if (sa) { sa.textContent = initials; if (!hasPhoto) sa.style.display = ''; }
     if (saImg) {
       if (hasPhoto) { applyAvatar(saImg, data.user.photo, ''); saImg.classList.add('visible'); }
       else { saImg.style.backgroundImage = ''; saImg.classList.remove('visible'); }
     }
-    if (si) si.value = data.user.name;
+    if (si) si.value = displayName;
     updateRemovePhotoVisibility(hasPhoto);
-    document.getElementById('ws-dropdown-name') && (document.getElementById('ws-dropdown-name').textContent = data.user.name);
+    document.getElementById('ws-dropdown-name') && (document.getElementById('ws-dropdown-name').textContent = displayName);
     document.getElementById('ws-dropdown-email') && (document.getElementById('ws-dropdown-email').textContent = data.user.email || (data.user.username ? '@' + data.user.username : ''));
     applyAvatar(document.getElementById('ws-dropdown-avatar'), hasPhoto ? data.user.photo : '', initials);
-    document.getElementById('user-dropdown-name') && (document.getElementById('user-dropdown-name').textContent = data.user.name);
+    document.getElementById('user-dropdown-name') && (document.getElementById('user-dropdown-name').textContent = displayName);
     document.getElementById('user-dropdown-email') && (document.getElementById('user-dropdown-email').textContent = data.user.email || (data.user.username ? '@' + data.user.username : ''));
     applyAvatar(document.getElementById('user-dropdown-avatar'), hasPhoto ? data.user.photo : '', initials);
   }
@@ -1691,7 +1711,8 @@
         initTooltips();
       }
 
-      document.querySelector('.page-content').scrollTo({ top: 0, behavior: 'instant' });
+      var pageContent = document.querySelector('.page-content');
+      if (pageContent) pageContent.scrollTo({ top: 0, behavior: 'instant' });
       completeLoadingBar();
     }
 
@@ -2172,14 +2193,14 @@
       html: `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:${p.color};display:inline-block;"></span>${p.name}</span>`
     }));
     const projectDrop = buildDropdown(projectOpts, selectedProjectId, (v) => { selectedProjectId = v; });
-    document.getElementById('task-project-dropdown').appendChild(projectDrop.element);
+    document.getElementById('task-project-dropdown')?.appendChild(projectDrop.element);
 
     const priorityOpts = ['low', 'medium', 'high'].map(p => ({
       value: p,
       html: `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:${PRIORITY_COLORS[p]};display:inline-block;"></span>${p.charAt(0).toUpperCase() + p.slice(1)}</span>`
     }));
     const priorityDrop = buildDropdown(priorityOpts, selectedPriority, (v) => { selectedPriority = v; });
-    document.getElementById('task-priority-dropdown').appendChild(priorityDrop.element);
+    document.getElementById('task-priority-dropdown')?.appendChild(priorityDrop.element);
 
     let selectedAssignee = null;
     const assigneeOpts = [{ value: '', html: '<span style="color:var(--text-tertiary);">Unassigned</span>' }].concat(data.team.map(m => ({
@@ -2187,7 +2208,7 @@
       html: `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:50%;background:${m.color || 'var(--primary)'};display:inline-flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:600;overflow:hidden;">${m.photo ? `<img src="${m.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">` : getInitials(m.name)}</span>${m.name}</span>`
     })));
     const assigneeDrop = buildDropdown(assigneeOpts, '', (v) => { selectedAssignee = v || null; });
-    document.getElementById('task-assignee-dropdown').appendChild(assigneeDrop.element);
+    document.getElementById('task-assignee-dropdown')?.appendChild(assigneeDrop.element);
 
     let selectedRecur = 'none';
     const recurOpts = [
@@ -2197,7 +2218,7 @@
       { value: 'monthly', label: 'Monthly' }
     ].map(r => ({ value: r.value, html: `<span>${r.label}</span>` }));
     const recurDrop = buildDropdown(recurOpts, selectedRecur, (v) => { selectedRecur = v; });
-    document.getElementById('task-recur-dropdown').appendChild(recurDrop.element);
+    document.getElementById('task-recur-dropdown')?.appendChild(recurDrop.element);
 
     setTimeout(() => document.getElementById('new-task-title')?.focus(), 100);
 
@@ -2352,14 +2373,14 @@
        html: `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:12px;height:12px;border-radius:50%;background:${p.color};display:inline-block;"></span>${p.name}</span>`
      }));
      const projectDrop = buildDropdown(projectOpts, selectedProjectId, (v) => { selectedProjectId = v; });
-     document.getElementById('edit-task-project-dropdown').appendChild(projectDrop.element);
+     document.getElementById('edit-task-project-dropdown')?.appendChild(projectDrop.element);
 
      const priorityOpts = ['low', 'medium', 'high'].map(p => ({
        value: p,
        html: `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:8px;height:8px;border-radius:50%;background:${PRIORITY_COLORS[p]};display:inline-block;"></span>${p.charAt(0).toUpperCase() + p.slice(1)}</span>`
      }));
      const priorityDrop = buildDropdown(priorityOpts, selectedPriority, (v) => { selectedPriority = v; });
-     document.getElementById('edit-task-priority-dropdown').appendChild(priorityDrop.element);
+     document.getElementById('edit-task-priority-dropdown')?.appendChild(priorityDrop.element);
 
      const statusOpts = [
        { value: 'backlog', label: 'Backlog' },
@@ -2372,7 +2393,7 @@
        html: `<span>${s.label}</span>`
      }));
      const statusDrop = buildDropdown(statusOpts, selectedStatus, (v) => { selectedStatus = v; });
-     document.getElementById('edit-task-status-dropdown').appendChild(statusDrop.element);
+     document.getElementById('edit-task-status-dropdown')?.appendChild(statusDrop.element);
 
      let selectedAssignee = task.assigneeId || null;
      const assigneeOpts = [{ value: '', html: '<span style="color:var(--text-tertiary);">Unassigned</span>' }].concat(data.team.map(m => ({
@@ -2380,7 +2401,7 @@
         html: `<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:50%;background:${m.color || 'var(--primary)'};display:inline-flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:600;overflow:hidden;">${m.photo ? `<img src="${m.photo}" alt="" style="width:100%;height:100%;object-fit:cover;">` : getInitials(m.name)}</span>${m.name}</span>`
       })));
       const assigneeDrop = buildDropdown(assigneeOpts, selectedAssignee || '', (v) => { selectedAssignee = v || null; });
-      document.getElementById('edit-task-assignee-dropdown').appendChild(assigneeDrop.element);
+      document.getElementById('edit-task-assignee-dropdown')?.appendChild(assigneeDrop.element);
 
       let selectedRecur = task.recurrence || 'none';
      const recurOpts = [
@@ -2390,7 +2411,7 @@
        { value: 'monthly', label: 'Monthly' }
      ].map(r => ({ value: r.value, html: `<span>${r.label}</span>` }));
      const recurDrop = buildDropdown(recurOpts, selectedRecur, (v) => { selectedRecur = v; });
-     document.getElementById('edit-task-recur-dropdown').appendChild(recurDrop.element);
+     document.getElementById('edit-task-recur-dropdown')?.appendChild(recurDrop.element);
 
     document.getElementById('edit-task-cancel')?.addEventListener('click', closeDrawer);
     document.getElementById('edit-task-delete')?.addEventListener('click', () => {
@@ -2565,16 +2586,20 @@
     });
 
     document.getElementById('edit-desc-edit-btn')?.addEventListener('click', function () {
-      document.getElementById('edit-task-desc').style.display = '';
-      document.getElementById('edit-task-desc-preview').style.display = 'none';
+      var desc = document.getElementById('edit-task-desc');
+      var preview = document.getElementById('edit-task-desc-preview');
+      if (desc) desc.style.display = '';
+      if (preview) preview.style.display = 'none';
       this.classList.add('active');
       document.getElementById('edit-desc-preview-btn')?.classList.remove('active');
     });
     document.getElementById('edit-desc-preview-btn')?.addEventListener('click', function () {
-      var text = document.getElementById('edit-task-desc')?.value || '';
-      document.getElementById('edit-task-desc-preview').innerHTML = renderMarkdown(text);
-      document.getElementById('edit-task-desc').style.display = 'none';
-      document.getElementById('edit-task-desc-preview').style.display = '';
+      var desc = document.getElementById('edit-task-desc');
+      var preview = document.getElementById('edit-task-desc-preview');
+      var text = desc ? desc.value : '';
+      if (preview) preview.innerHTML = renderMarkdown(text);
+      if (desc) desc.style.display = 'none';
+      if (preview) preview.style.display = '';
       this.classList.add('active');
       document.getElementById('edit-desc-edit-btn')?.classList.remove('active');
     });
@@ -2710,7 +2735,8 @@
       if (!email) { showToast('Enter an email address', 'warning'); return; }
       API.post('/projects/' + projectId + '/share', { email: email }).then(function () {
         showToast('Shared with ' + email, 'success');
-        document.getElementById('share-email-input').value = '';
+        var shareInput = document.getElementById('share-email-input');
+        if (shareInput) shareInput.value = '';
         renderSharedWith(projectId);
       }).catch(function (err) { showToast(err.message || 'Failed to share', 'error'); });
     });
@@ -2888,7 +2914,7 @@
     let selectedPhoto = null;
     const roleOpts = ['Member', 'Admin', 'Owner'].map(r => ({ value: r, label: r }));
     const roleDrop = buildDropdown(roleOpts, selectedRole, (v) => { selectedRole = v; });
-    document.getElementById('member-role-dropdown').appendChild(roleDrop.element);
+    document.getElementById('member-role-dropdown')?.appendChild(roleDrop.element);
 
     const photoInput = document.getElementById('create-member-photo-input');
     const photoPreview = document.getElementById('create-member-photo-preview');
@@ -2972,7 +2998,7 @@
     let selectedPhoto = member.photo || null;
     const roleOpts = ['Member', 'Admin', 'Owner'].map(r => ({ value: r, label: r }));
     const roleDrop = buildDropdown(roleOpts, selectedRole, (v) => { selectedRole = v; });
-    document.getElementById('edit-member-role-dropdown').appendChild(roleDrop.element);
+    document.getElementById('edit-member-role-dropdown')?.appendChild(roleDrop.element);
 
     const photoInput = document.getElementById('edit-member-photo-input');
     const photoPreview = document.getElementById('edit-member-photo-preview');
@@ -4771,23 +4797,27 @@
       }
     }
 
+    function safeInit(name, fn) {
+      try { fn(); } catch (err) { console.error('Init failed: ' + name, err); }
+    }
+
     function bootApp() {
-      initNavigation();
-      initSidebar();
-      initDarkMode();
-      initCommandPalette();
-      initTaskDrawer();
-      initFAB();
-      initNewProjectButtons();
-      initBackButton();
-      initSettings();
-      initProfilePicture();
-      initKeyboardShortcuts();
-      initResizeHandler();
-      initScrollAnimations();
-      initPremiumInteractions();
-      initTooltips();
-      initDailyGoals();
+      safeInit('navigation', initNavigation);
+      safeInit('sidebar', initSidebar);
+      safeInit('theme', initDarkMode);
+      safeInit('command palette', initCommandPalette);
+      safeInit('task drawer', initTaskDrawer);
+      safeInit('fab', initFAB);
+      safeInit('new project buttons', initNewProjectButtons);
+      safeInit('back button', initBackButton);
+      safeInit('settings', initSettings);
+      safeInit('profile picture', initProfilePicture);
+      safeInit('keyboard shortcuts', initKeyboardShortcuts);
+      safeInit('resize handler', initResizeHandler);
+      safeInit('scroll animations', initScrollAnimations);
+      safeInit('premium interactions', initPremiumInteractions);
+      safeInit('tooltips', initTooltips);
+      safeInit('daily goals', initDailyGoals);
       var scheduleIdle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 900); };
       scheduleIdle(function () { initSSE(); }, { timeout: 2500 });
       setTimeout(initNotificationsFromAPI, 600);
@@ -4867,15 +4897,16 @@
         updateUserInfo();
         updateProjectCount();
         updateCommandPaletteProjects();
-        var lastPage = localStorage.getItem('pm-last-page');
-        if (lastPage === 'project-detail') {
-          navigateTo('project-detail', localStorage.getItem('pm-last-project') || state.projects[0]?.id);
-        } else if (lastPage) {
-          navigateTo(lastPage);
-        } else {
-          navigateTo('dashboard');
-        }
       }
+       var lastPage = localStorage.getItem('pm-last-page');
+       var lastProjectId = localStorage.getItem('pm-last-project') || (state.projects[0] && state.projects[0].id);
+       if (lastPage === 'project-detail' && lastProjectId) {
+         navigateTo('project-detail', lastProjectId);
+       } else if (lastPage && document.getElementById('page-' + lastPage)) {
+         navigateTo(lastPage);
+       } else {
+         navigateTo('dashboard');
+       }
 
       maybeShowSetupGuide();
     }

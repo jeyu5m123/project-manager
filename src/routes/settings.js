@@ -24,7 +24,7 @@ router.get('/smtp', requireAuth, async function (_req, res) {
     if (rows.length === 0) {
       return res.json({ configured: false });
     }
-    var config = rows[0].value;
+    var config = rows[0].value || {};
     res.json({ configured: true, host: config.host, port: config.port, secure: config.secure, user: config.user, fromName: config.fromName, fromAddr: config.fromAddr });
   } catch (err) {
     console.error('Failed to get SMTP config:', err.message);
@@ -77,7 +77,8 @@ var webhookSchema = z.object({ webhook_url: z.string().max(500).optional() });
 router.get('/webhook', requireAuth, async function (req, res) {
   try {
     var { rows } = await db.query("SELECT value FROM settings WHERE key = 'webhook' LIMIT 1");
-    res.json({ webhook_url: rows.length ? (rows[0].value.webhook_url || '') : '' });
+    var cfg = rows.length ? rows[0].value : null;
+    res.json({ webhook_url: cfg && cfg.webhook_url ? cfg.webhook_url : '' });
   } catch (err) { res.status(500).json({ error: 'Failed.' }); }
 });
 

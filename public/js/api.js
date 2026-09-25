@@ -7,6 +7,7 @@ var authToken = sessionStorage.getItem('pm-token') || localStorage.getItem('pm-t
 var tokenStorage = localStorage.getItem('pm-token') ? 'local' : (sessionStorage.getItem('pm-token') ? 'session' : null);
 
 var pending = {};
+var sessionExpired = false;
 
 if (authToken) localStorage.removeItem('pm-use-mock');
 var useMock = !authToken && localStorage.getItem('pm-use-mock') === 'true';
@@ -358,8 +359,11 @@ function apiFetch(path, options) {
 
   var promise = fetch(url, fetchOptions).then(function (res) {
     if (res.status === 401) {
-      setAuthToken(null);
-      window.location.reload();
+      if (!sessionExpired) {
+        sessionExpired = true;
+        setAuthToken(null);
+        window.location.reload();
+      }
       throw new Error('Session expired');
     }
     if (!res.ok) {
