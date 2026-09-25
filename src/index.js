@@ -52,16 +52,35 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 let dbReady = null;
 
+function dbReason(err) {
+  if (err && err.code) return err.code;
+  if (err && err.name) return err.name;
+  return 'db_error';
+}
+
 function ensureDb() {
   if (!dbReady) {
     dbReady = (async function () {
+      if (!process.env.DATABASE_URL) {
+        var missing = new Error('DATABASE_URL is not set.');
+        missing.code = 'DB_NOT_CONFIGURED';
+        throw missing;
+      }
       const { default: db } = await import('./db/index.js');
-      const { rows } = await db.query("SELECT to_regclass('public.users') AS table_name");
-      if (rows[0] && rows[0].table_name) return;
-      await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-      const fs = await import('fs');
-      const schema = fs.readFileSync(new URL('./db/schema.sql', import.meta.url), 'utf-8');
-      await db.query(schema);
+      const run = async function () {
+        const { rows } = await db.query("SELECT to_regclass('public.users') AS table_name");
+        if (rows[0] && rows[0].table_name) return;
+        await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+        const fs = await import('fs');
+        const schema = fs.readFileSync(new URL('./db/schema.sql', import.meta.url), 'utf-8');
+        await db.query(schema);
+      };
+      try {
+        await run();
+      } catch (first) {
+        await new Promise(function (r) { setTimeout(r, 700); });
+        await run();
+      }
     })().catch(function (err) {
       dbReady = null;
       throw err;
@@ -74,8 +93,8 @@ app.use('/api', function (req, res, next) {
   ensureDb().then(function () {
     next();
   }).catch(function (err) {
-    console.error('Database unavailable:', err.message);
-    res.status(503).json({ error: 'Database not connected.' });
+    console.error('Database unavailable [' + dbReason(err) + ']:', err.message);
+    res.status(503).json({ error: 'Database not connected.', reason: dbReason(err) });
   });
 });
 
@@ -120,7 +139,28 @@ app.use(express.static(PUBLIC_DIR, {
   },
 }));
 
-app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
+app.get('/health', async (_req, res) => {
+  if (!process.env.DATABASE_URL) {
+    return res.json({ status: 'ok', db: 'not_configured', reason: 'DB_NOT_CONFIGURED' });
+  }
+  try {
+    const { default: db } = await import('./db/index.js');
+    await Promise.race([
+      db.query('SELECT 1'),
+      new Promise(function (_resolve, reject) {
+        setTimeout(function () {
+          var timeout = new Error('Database check timed out.');
+          timeout.code = 'ETIMEDOUT';
+          reject(timeout);
+        }, 2500);
+      }),
+    ]);
+    res.json({ status: 'ok', db: 'up' });
+  } catch (err) {
+    console.error('Health DB check failed [' + dbReason(err) + ']:', err.message);
+    res.json({ status: 'ok', db: 'down', reason: dbReason(err) });
+  }
+});
 
 app.get('/_debug', async (req, res) => {
   if (process.env.NODE_ENV === 'production' && req.query.token !== process.env.DEBUG_TOKEN) {

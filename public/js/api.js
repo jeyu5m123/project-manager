@@ -368,7 +368,9 @@ function apiFetch(path, options) {
     }
     if (!res.ok) {
       return res.json().then(function (body) {
-        var err = new Error(body.error || 'Request failed');
+        var msg = body.error || 'Request failed';
+        if (body.reason) msg += ' (' + body.reason + ')';
+        var err = new Error(msg);
         err.status = res.status;
         err.body = body;
         throw err;
