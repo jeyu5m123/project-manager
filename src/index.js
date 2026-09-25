@@ -140,8 +140,13 @@ app.use(express.static(PUBLIC_DIR, {
 }));
 
 app.get('/health', async (_req, res) => {
+  var env = {
+    database: !!process.env.DATABASE_URL,
+    jwt: !!process.env.JWT_SECRET,
+    cors: !!process.env.CORS_ORIGIN,
+  };
   if (!process.env.DATABASE_URL) {
-    return res.json({ status: 'ok', db: 'not_configured', reason: 'DB_NOT_CONFIGURED' });
+    return res.json({ status: 'ok', db: 'not_configured', reason: 'DB_NOT_CONFIGURED', env: env });
   }
   try {
     const { default: db } = await import('./db/index.js');
@@ -155,10 +160,10 @@ app.get('/health', async (_req, res) => {
         }, 2500);
       }),
     ]);
-    res.json({ status: 'ok', db: 'up' });
+    res.json({ status: 'ok', db: 'up', env: env });
   } catch (err) {
     console.error('Health DB check failed [' + dbReason(err) + ']:', err.message);
-    res.json({ status: 'ok', db: 'down', reason: dbReason(err) });
+    res.json({ status: 'ok', db: 'down', reason: dbReason(err), env: env });
   }
 });
 
