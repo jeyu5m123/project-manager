@@ -129,6 +129,38 @@ You now have a live website. It will have a URL like `https://project-manager.up
 
 ---
 
+## Part 3B (Alternative): Deploy on Vercel
+
+Vercel runs the whole app as one serverless function. The front-end files live in the `public/` folder and are served by Vercel's CDN automatically.
+
+**Step 3B.1 — Import the project**
+
+1. Go to https://vercel.com/new
+2. Sign in with GitHub
+3. Pick your `project-manager` repo
+4. Leave the framework settings on "Express" (auto-detected) and click "Deploy"
+
+**Step 3B.2 — Add a database**
+
+Vercel does not include PostgreSQL. Create a free one (e.g. https://neon.tech), copy its connection string, then in Vercel:
+
+1. Click your project → Settings → Environment Variables
+2. Add `DATABASE_URL` = your Postgres connection string
+3. Add `JWT_SECRET` = the random string from Part 6
+4. Add `NODE_ENV` = `production`
+5. Add `CORS_ORIGIN` = `https://your-project.vercel.app` (use your real Vercel URL)
+6. Add any OAuth/SMTP keys you set up in Parts 4-5
+7. Go to Deployments → Redeploy
+
+The database tables are created automatically the first time the site calls the API. If anything looks empty, run `npm run db:migrate` on your computer with `DATABASE_URL` set.
+
+**Vercel notes**
+
+- OAuth callback URLs must use your Vercel URL, e.g. `https://your-project.vercel.app/api/auth/google/callback`.
+- The hourly recurring-task engine and live notifications keep running only on a persistent host (Railway). On Vercel, recurring tasks are not generated unless you add a Vercel Cron Job.
+
+---
+
 ## Part 4: Set Up Google Login
 
 **Step 4.1 — Go to Google Cloud Console**

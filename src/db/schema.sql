@@ -12,8 +12,6 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE tasks ALTER COLUMN due_date TYPE TEXT USING due_date::TEXT;
-
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username));
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
@@ -36,26 +34,8 @@ CREATE TABLE IF NOT EXISTS projects (
 
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
 
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS time_spent INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '';
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]';
-
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS shared_with TEXT[] NOT NULL DEFAULT '{}';
 CREATE INDEX IF NOT EXISTS idx_projects_shared ON projects USING GIN(shared_with);
-
-ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE CASCADE;
-
-CREATE TABLE IF NOT EXISTS notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
-  message TEXT NOT NULL,
-  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
-  read BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 
 CREATE TABLE IF NOT EXISTS team_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -80,6 +60,23 @@ CREATE TABLE IF NOT EXISTS tasks (
   recurrence TEXT NOT NULL DEFAULT 'none' CHECK (recurrence IN ('none', 'daily', 'weekly', 'monthly')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE tasks ALTER COLUMN due_date TYPE TEXT USING due_date::TEXT;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS time_spent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS attachments TEXT NOT NULL DEFAULT '[]';
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  message TEXT NOT NULL,
+  task_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 
 CREATE TABLE IF NOT EXISTS subtasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -112,6 +109,8 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   description TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id);

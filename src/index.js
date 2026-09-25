@@ -22,20 +22,23 @@ import settingsRoutes from './routes/settings.js';
 import notificationRoutes from './routes/notifications.js';
 import goalRoutes from './routes/goals.js';
 import { sseHandler } from './sse.js';
-import { broadcast } from './sse.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const PUBLIC_DIR = path.join(ROOT, 'public');
+const INDEX_FILE = fileURLToPath(new URL('../public/index.html', import.meta.url));
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
+
+app.set('trust proxy', 1);
 
 const corsOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({
   origin: corsOrigin,
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  credentials: corsOrigin !== '*',
 }));
 
 app.use(helmet({
@@ -47,13 +50,31 @@ app.use(helmet({
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-var dbConnected = false;
+let dbReady = null;
+
+function ensureDb() {
+  if (!dbReady) {
+    dbReady = (async function () {
+      const { default: db } = await import('./db/index.js');
+      await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+      const fs = await import('fs');
+      const schema = fs.readFileSync(new URL('./db/schema.sql', import.meta.url), 'utf-8');
+      await db.query(schema);
+    })().catch(function (err) {
+      dbReady = null;
+      throw err;
+    });
+  }
+  return dbReady;
+}
 
 app.use('/api', function (req, res, next) {
-  if (!dbConnected) {
-    return res.status(503).json({ error: 'Database not connected. Add PostgreSQL in Railway.' });
-  }
-  next();
+  ensureDb().then(function () {
+    next();
+  }).catch(function (err) {
+    console.error('Database unavailable:', err.message);
+    res.status(503).json({ error: 'Database not connected.' });
+  });
 });
 
 const authLimiter = rateLimit({
@@ -88,7 +109,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/goals', goalRoutes);
 
-app.use(express.static(ROOT, {
+app.use(express.static(PUBLIC_DIR, {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) {
@@ -99,7 +120,10 @@ app.use(express.static(ROOT, {
 
 app.get('/health', (_req, res) => { res.json({ status: 'ok' }); });
 
-app.get('/_debug', async (_req, res) => {
+app.get('/_debug', async (req, res) => {
+  if (process.env.NODE_ENV === 'production' && req.query.token !== process.env.DEBUG_TOKEN) {
+    return res.status(404).json({ error: 'Not found' });
+  }
   var info = {
     nodeEnv: process.env.NODE_ENV,
     hasDbUrl: !!process.env.DATABASE_URL,
@@ -119,8 +143,17 @@ app.get('/_debug', async (_req, res) => {
   res.json(info);
 });
 
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(ROOT, 'index.html'));
+app.get('*', function (req, res, next) {
+  if (path.extname(req.path)) return next();
+  res.sendFile(INDEX_FILE, function (err) {
+    if (!err) return;
+    const qs = req.originalUrl.indexOf('?');
+    if (req.accepts('html')) {
+      res.redirect(302, qs === -1 ? '/' : '/' + req.originalUrl.slice(qs));
+    } else {
+      res.status(404).json({ error: 'Not found' });
+    }
+  });
 });
 
 app.use((err, _req, res, _next) => {
@@ -135,7 +168,6 @@ app.use((err, _req, res, _next) => {
 });
 
 function startRecurrenceEngine() {
-  if (!dbConnected) return;
   setInterval(async function () {
     try {
       const { default: db } = await import('./db/index.js');
@@ -166,47 +198,13 @@ function startRecurrenceEngine() {
   console.log('Recurrence engine started (hourly check)');
 }
 
-async function ensureExtensions() {
-  try {
-    const { default: db } = await import('./db/index.js');
-    await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
-    console.log('Extensions ready.');
-  } catch (err) {
-    console.log('Extension setup skipped (non-fatal): ' + err.message);
-  }
-}
-
-async function tryConnectDb(retries, delayMs) {
-  for (var i = 0; i < retries; i++) {
-    try {
-      const { default: db } = await import('./db/index.js');
-      await db.query('SELECT 1');
-      console.log('Database connected.');
-
-      var fs = await import('fs');
-      var schemaPath = path.join(__dirname, 'db', 'schema.sql');
-      var schema = fs.readFileSync(schemaPath, 'utf-8');
-      await db.query(schema);
-      console.log('Schema up to date.');
-      return true;
-    } catch (err) {
-      console.log('DB attempt ' + (i + 1) + '/' + retries + ' failed: ' + err.message);
-      console.log('Full error:', err.stack || err);
-      if (i < retries - 1) {
-        await new Promise(function (r) { setTimeout(r, delayMs); });
-      }
-    }
-  }
-  return false;
-}
-
 async function start() {
-  await ensureExtensions();
-  dbConnected = await tryConnectDb(5, 3000);
-
-  if (!dbConnected) {
-    console.log('WARNING: No database connection. API calls will return 503.');
-    console.log('Set DATABASE_URL or add PostgreSQL plugin in Railway.');
+  try {
+    await ensureDb();
+    console.log('Database connected.');
+  } catch (err) {
+    console.error('Database connection failed:', err.message);
+    console.error('Set DATABASE_URL to a reachable PostgreSQL instance.');
   }
 
   startRecurrenceEngine();
@@ -217,4 +215,8 @@ async function start() {
   });
 }
 
-start();
+if (!process.env.VERCEL) {
+  start();
+}
+
+export default app;
