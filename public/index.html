@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0F0F0F">
   <title>Project Manager</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23000000'/%3E%3Cstop offset='100%25' stop-color='%23000000'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M11 25V8h5a4.5 4.5 0 0 1 4.5 4.5v0.5a4.5 4.5 0 0 1-4.5 4.5H15v7' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23000000'/%3E%3Cstop offset='100%25' stop-color='%23000000'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M11 25V8h5a4.5 4.5 0 0 1 4.5 4.5v0.5a4.5 4.5 0 0 1-4.5 4.5H15v7' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23DA5427'/%3E%3Cstop offset='100%25' stop-color='%23DA5427'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M11 25V8h5a4.5 4.5 0 0 1 4.5 4.5v0.5a4.5 4.5 0 0 1-4.5 4.5H15v7' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23DA5427'/%3E%3Cstop offset='100%25' stop-color='%23DA5427'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M11 25V8h5a4.5 4.5 0 0 1 4.5 4.5v0.5a4.5 4.5 0 0 1-4.5 4.5H15v7' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <script>(function(){var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,13 +78,13 @@
         <div class="onboarding-step">
           <label class="onboarding-step-label">Password</label>
           <div class="input-wrapper">
-            <input type="password" class="onboarding-input" id="signup-password" placeholder="Min 8 characters" autocomplete="new-password">
+            <input type="password" class="onboarding-input" id="signup-password" placeholder="At least 8 characters" autocomplete="new-password">
             <button class="password-toggle" type="button" tabindex="-1" aria-label="Show password" data-target="signup-password">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             </button>
           </div>
         </div>
-        <button class="onboarding-btn" id="signup-submit">Create Account</button>
+        <button class="onboarding-btn" id="signup-submit">Create account</button>
         <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--text-tertiary);">
           Already have an account? <a href="#" id="auth-show-login-from-signup" style="color:var(--primary);text-decoration:none;">Sign in</a>
         </div>
@@ -127,41 +127,23 @@
   </div>
 
   <div class="setup-guide-overlay" id="setup-guide" style="display:none;">
-    <div class="setup-guide">
-      <div class="onboarding-logo">
-        <div class="onboarding-logo-icon">
-          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 28V9h5.5q3.9 0 6 1.95t2.1 5.3v0.5q0 3.35-2.1 5.3t-6 1.95H17v4" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+    <div class="tour-spotlight" id="tour-spotlight" aria-hidden="true"></div>
+    <div class="setup-guide" id="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+      <div class="tour-header">
+        <span class="tour-kicker" id="tour-kicker">Quick tour</span>
+        <span class="tour-count" id="tour-count">1 of 5</span>
+      </div>
+      <div class="tour-progress" aria-hidden="true"><span id="tour-progress-bar"></span></div>
+      <h2 class="setup-guide-title" id="tour-title">Welcome to your workspace</h2>
+      <p class="setup-guide-subtitle" id="tour-text">Everything here is built around projects and tasks.</p>
+      <div class="tour-dots" id="tour-dots" aria-hidden="true"></div>
+      <div class="tour-actions">
+        <button class="setup-guide-skip" id="setup-skip" type="button">Skip tour</button>
+        <div class="tour-nav">
+          <button class="tour-btn tour-btn-ghost" id="tour-back" type="button">Back</button>
+          <button class="tour-btn tour-btn-solid" id="tour-next" type="button">Next</button>
         </div>
       </div>
-      <h2 class="setup-guide-title" id="setup-guide-title">Welcome to Project Manager</h2>
-      <p class="setup-guide-subtitle">Let's set up your first project in a few quick steps.</p>
-      <div class="setup-guide-steps">
-        <div class="setup-guide-step">
-          <div class="setup-guide-step-num">1</div>
-          <div class="setup-guide-step-body">
-            <strong>Create your first project</strong>
-            <p>Give your project a name and a color.</p>
-          </div>
-        </div>
-        <div class="setup-guide-step">
-          <div class="setup-guide-step-num">2</div>
-          <div class="setup-guide-step-body">
-            <strong>Add tasks</strong>
-            <p>Break the work down with due dates and priorities.</p>
-          </div>
-        </div>
-        <div class="setup-guide-step">
-          <div class="setup-guide-step-num">3</div>
-          <div class="setup-guide-step-body">
-            <strong>Invite your team</strong>
-            <p>Bring people in and assign the work.</p>
-          </div>
-        </div>
-      </div>
-      <button class="onboarding-btn" id="setup-create-project">Create Your First Project</button>
-      <button class="setup-guide-skip" id="setup-skip" type="button">Skip for now</button>
     </div>
   </div>
 

@@ -19,16 +19,22 @@ export function sseHandler(req, res) {
   req.on('close', function () { clients.delete(res); });
 }
 
+var webhookCache = { url: null, at: 0 };
+
 export async function broadcast(data) {
   var msg = 'data: ' + JSON.stringify(data) + '\n\n';
   clients.forEach(function (client) {
     try { client.write(msg); } catch (e) { clients.delete(client); }
   });
   try {
-    var { default: db } = await import('./db/index.js');
-    var { rows } = await db.query("SELECT value FROM settings WHERE key = 'webhook'");
-    if (rows.length && rows[0].value && rows[0].value.webhook_url) {
-      fetch(rows[0].value.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: data.type, timestamp: new Date().toISOString(), data: data }), signal: AbortSignal.timeout(3000) }).catch(function () {});
+    if (Date.now() - webhookCache.at > 60000) {
+      var { default: db } = await import('./db/index.js');
+      var { rows } = await db.query("SELECT value FROM settings WHERE key = 'webhook'");
+      var cfg = rows.length ? rows[0].value : null;
+      webhookCache = { url: cfg && cfg.webhook_url ? cfg.webhook_url : null, at: Date.now() };
+    }
+    if (webhookCache.url) {
+      fetch(webhookCache.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: data.type, timestamp: new Date().toISOString(), data: data }), signal: AbortSignal.timeout(3000) }).catch(function () {});
     }
   } catch (e) {}
 }

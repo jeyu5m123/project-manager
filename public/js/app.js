@@ -272,11 +272,32 @@
     return 'Good evening';
   }
 
+  function applyAvatar(el, photo, initials) {
+    if (!el) return;
+    if (!photo) {
+      el.style.backgroundImage = '';
+      el.textContent = initials;
+      return;
+    }
+    el.textContent = '';
+    var probe = new Image();
+    probe.onload = function () {
+      el.style.backgroundImage = 'url("' + photo + '")';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+    };
+    probe.onerror = function () {
+      el.style.backgroundImage = '';
+      el.textContent = initials;
+      el.classList.remove('visible');
+    };
+    probe.src = photo;
+  }
+
   function updateUserInfo() {
     const data = getData();
     if (!data.user) return;
     const initials = getInitials(data.user.name);
-    const color = COLORS[0];
     const hasPhoto = data.user.photo && data.user.photo.length > 0;
     const sb = document.getElementById('sidebar-user-avatar');
     const sn = document.getElementById('sidebar-user-name');
@@ -285,35 +306,23 @@
     const sa = document.getElementById('settings-avatar');
     const saImg = document.getElementById('settings-avatar-img');
     const si = document.getElementById('settings-name');
-    if (sb) { 
-      sb.textContent = hasPhoto ? '' : initials;
-      sb.style.backgroundImage = hasPhoto ? `url(${data.user.photo})` : '';
-      sb.style.backgroundSize = hasPhoto ? 'cover' : '';
-      sb.style.backgroundPosition = hasPhoto ? 'center' : '';
-    }
+    applyAvatar(sb, hasPhoto ? data.user.photo : '', initials);
     if (sn) sn.textContent = data.user.name;
-    if (tn) { 
-      tn.textContent = hasPhoto ? '' : initials;
-      tn.style.backgroundImage = hasPhoto ? `url(${data.user.photo})` : '';
-      tn.style.backgroundSize = hasPhoto ? 'cover' : '';
-      tn.style.backgroundPosition = hasPhoto ? 'center' : '';
-    }
+    applyAvatar(tn, hasPhoto ? data.user.photo : '', initials);
     if (g) g.textContent = getGreeting() + ', ' + data.user.name.split(' ')[0];
     if (sa) { sa.textContent = initials; if (!hasPhoto) sa.style.display = ''; }
     if (saImg) {
-      if (hasPhoto) { saImg.style.backgroundImage = `url(${data.user.photo})`; saImg.classList.add('visible'); }
+      if (hasPhoto) { applyAvatar(saImg, data.user.photo, ''); saImg.classList.add('visible'); }
       else { saImg.style.backgroundImage = ''; saImg.classList.remove('visible'); }
     }
     if (si) si.value = data.user.name;
     updateRemovePhotoVisibility(hasPhoto);
     document.getElementById('ws-dropdown-name') && (document.getElementById('ws-dropdown-name').textContent = data.user.name);
     document.getElementById('ws-dropdown-email') && (document.getElementById('ws-dropdown-email').textContent = data.user.email || (data.user.username ? '@' + data.user.username : ''));
-    var wda = document.getElementById('ws-dropdown-avatar');
-    if (wda) { wda.textContent = hasPhoto ? '' : initials; wda.style.backgroundImage = hasPhoto ? 'url(' + data.user.photo + ')' : ''; wda.style.backgroundSize = hasPhoto ? 'cover' : ''; wda.style.backgroundPosition = hasPhoto ? 'center' : ''; }
+    applyAvatar(document.getElementById('ws-dropdown-avatar'), hasPhoto ? data.user.photo : '', initials);
     document.getElementById('user-dropdown-name') && (document.getElementById('user-dropdown-name').textContent = data.user.name);
     document.getElementById('user-dropdown-email') && (document.getElementById('user-dropdown-email').textContent = data.user.email || (data.user.username ? '@' + data.user.username : ''));
-    var uda = document.getElementById('user-dropdown-avatar');
-    if (uda) { uda.textContent = hasPhoto ? '' : initials; uda.style.backgroundImage = hasPhoto ? 'url(' + data.user.photo + ')' : ''; uda.style.backgroundSize = hasPhoto ? 'cover' : ''; uda.style.backgroundPosition = hasPhoto ? 'center' : ''; }
+    applyAvatar(document.getElementById('user-dropdown-avatar'), hasPhoto ? data.user.photo : '', initials);
   }
 
   function updateRemovePhotoVisibility(hasPhoto) {
@@ -4050,11 +4059,11 @@
         
         // Orchestrate disappearance of children
         const children = oldEl.querySelectorAll('.onboarding-title, .onboarding-subtitle, .onboarding-step, .onboarding-btn');
-        children.forEach((child, i) => {
-          child.style.transition = 'all 0.4s var(--ease-out-expo)';
+        children.forEach((child) => {
+          child.style.transition = 'opacity 140ms ease, transform 140ms cubic-bezier(0.23, 1, 0.32, 1), filter 140ms ease';
           child.style.opacity = '0';
-          child.style.transform = 'translateY(-10px)';
-          child.style.filter = 'blur(4px)';
+          child.style.transform = 'translateY(-6px)';
+          child.style.filter = 'blur(2px)';
         });
 
         const onEnd = () => {
@@ -4075,10 +4084,10 @@
           });
 
           newEl.offsetHeight;
-          newEl.style.animation = (isForward ? 'slideLeftIn' : 'slideRightIn') + ' 0.7s var(--ease-out-expo) both';
+          newEl.style.animation = (isForward ? 'slideLeftIn' : 'slideRightIn') + ' 0.22s var(--ease-out-expo) both';
         };
         oldEl.addEventListener('animationend', onEnd);
-        setTimeout(onEnd, 450);
+        setTimeout(onEnd, 200);
       } else if (newEl) {
         views.forEach(v => {
           const el = document.getElementById(v);
@@ -4093,28 +4102,148 @@
       if (el) { el.style.display = ''; el.textContent = msg; }
     }
 
+    var TOUR_STEPS = [
+      { title: 'Welcome to your workspace', text: 'Everything here is built around projects and tasks. This quick tour takes about 20 seconds.', target: null },
+      { title: 'Projects hold everything', text: 'Every task lives inside a project. Give it a name, a colour, and it appears on your dashboard.', target: '[data-page="projects"]' },
+      { title: 'Tasks move work forward', text: 'Add tasks with due dates, priorities, subtasks and attachments. Check them off as you go.', target: '[data-page="tasks"]' },
+      { title: 'Bring your team in', text: 'Add teammates and assign tasks so ownership is always clear.', target: '[data-page="team"]' },
+      { title: 'That is the tour', text: 'Create your first project and the dashboard fills itself in.', target: '#dashboard-new-project', cta: 'Create my first project' }
+    ];
+
+    var tourState = { index: 0, open: false, onKey: null, onResize: null, wired: false };
+
+    function tourElements() {
+      return {
+        overlay: document.getElementById('setup-guide'),
+        spot: document.getElementById('tour-spotlight'),
+        card: document.getElementById('tour-card'),
+        kicker: document.getElementById('tour-kicker'),
+        count: document.getElementById('tour-count'),
+        bar: document.getElementById('tour-progress-bar'),
+        title: document.getElementById('tour-title'),
+        text: document.getElementById('tour-text'),
+        dots: document.getElementById('tour-dots'),
+        back: document.getElementById('tour-back'),
+        next: document.getElementById('tour-next'),
+        skip: document.getElementById('setup-skip')
+      };
+    }
+
+    function tourDoneKey(userId) { return 'pm-tour-done-' + userId; }
+
+    function positionTourStep() {
+      var els = tourElements();
+      if (!els.overlay) return;
+      var step = TOUR_STEPS[tourState.index];
+      var target = step.target ? document.querySelector(step.target) : null;
+      var rect = target ? target.getBoundingClientRect() : null;
+      var visible = !!(rect && rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight && rect.bottom > 0);
+      els.overlay.classList.toggle('tour-no-target', !visible);
+      if (visible) {
+        var pad = 8;
+        els.spot.style.top = (rect.top - pad) + 'px';
+        els.spot.style.left = (rect.left - pad) + 'px';
+        els.spot.style.width = (rect.width + pad * 2) + 'px';
+        els.spot.style.height = (rect.height + pad * 2) + 'px';
+        els.spot.classList.add('active');
+      } else {
+        els.spot.classList.remove('active');
+      }
+      els.kicker.textContent = step.cta ? 'Final step' : 'Quick tour';
+      els.count.textContent = (tourState.index + 1) + ' of ' + TOUR_STEPS.length;
+      els.bar.style.transform = 'scaleX(' + ((tourState.index + 1) / TOUR_STEPS.length) + ')';
+      els.back.disabled = tourState.index === 0;
+      els.next.textContent = step.cta || 'Next';
+      els.dots.querySelectorAll('span').forEach(function (dot, i) {
+        dot.classList.toggle('active', i === tourState.index);
+      });
+    }
+
+    function renderTourStep() {
+      var els = tourElements();
+      if (!els.overlay) return;
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var swap = function () {
+        var step = TOUR_STEPS[tourState.index];
+        els.title.textContent = step.title;
+        els.text.textContent = step.text;
+        positionTourStep();
+        els.card.classList.remove('tour-swapping');
+      };
+      if (reduced) { swap(); return; }
+      els.card.classList.add('tour-swapping');
+      setTimeout(swap, 140);
+    }
+
+    function tourNext() {
+      if (tourState.index >= TOUR_STEPS.length - 1) {
+        endTour();
+        if (typeof openProjectDrawerCreate === 'function') openProjectDrawerCreate();
+        return;
+      }
+      tourState.index++;
+      renderTourStep();
+    }
+
+    function tourPrev() {
+      if (tourState.index === 0) return;
+      tourState.index--;
+      renderTourStep();
+    }
+
+    function endTour() {
+      var els = tourElements();
+      if (!els.overlay) return;
+      els.overlay.classList.remove('visible');
+      tourState.open = false;
+      if (state.user) {
+        localStorage.setItem(tourDoneKey(state.user.id), '1');
+        localStorage.removeItem('pm-setup-skipped-' + state.user.id);
+      }
+      document.removeEventListener('keydown', tourState.onKey);
+      window.removeEventListener('resize', tourState.onResize);
+      setTimeout(function () {
+        els.overlay.style.display = 'none';
+        els.overlay.classList.remove('tour-no-target');
+        els.spot.classList.remove('active');
+      }, 260);
+    }
+
+    function startTour() {
+      var els = tourElements();
+      if (!els.overlay) return;
+      if (!tourState.wired) {
+        tourState.wired = true;
+        els.next.addEventListener('click', tourNext);
+        els.back.addEventListener('click', tourPrev);
+        els.skip.addEventListener('click', function () { endTour(); });
+        els.dots.innerHTML = TOUR_STEPS.map(function () { return '<span></span>'; }).join('');
+      }
+      tourState.index = 0;
+      tourState.open = true;
+      els.overlay.style.display = '';
+      requestAnimationFrame(function () { els.overlay.classList.add('visible'); });
+      renderTourStep();
+      els.next.focus({ preventScroll: true });
+      tourState.onKey = function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); endTour(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); tourNext(); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); tourPrev(); }
+      };
+      tourState.onResize = function () { positionTourStep(); };
+      document.addEventListener('keydown', tourState.onKey);
+      window.addEventListener('resize', tourState.onResize);
+    }
+
+    window.PMTour = { start: startTour };
+
     function maybeShowSetupGuide() {
-      var guide = document.getElementById('setup-guide');
-      if (!guide || !state.user) return;
+      if (!state.user) return;
       if (state.projects.length > 0) return;
-      var skipKey = 'pm-setup-skipped-' + state.user.id;
-      if (localStorage.getItem(skipKey)) return;
-      var firstName = (state.user.name || state.user.username || '').split(' ')[0];
-      var title = document.getElementById('setup-guide-title');
-      if (title && firstName) title.textContent = 'Welcome, ' + firstName;
-      guide.style.display = '';
-      requestAnimationFrame(function () { guide.classList.add('visible'); });
-      document.getElementById('setup-create-project')?.addEventListener('click', function () {
-        guide.classList.remove('visible');
-        setTimeout(function () { guide.style.display = 'none'; }, 350);
-        localStorage.removeItem(skipKey);
-        openProjectDrawerCreate();
-      });
-      document.getElementById('setup-skip')?.addEventListener('click', function () {
-        guide.classList.remove('visible');
-        setTimeout(function () { guide.style.display = 'none'; }, 350);
-        localStorage.setItem(skipKey, '1');
-      });
+      var id = state.user.id;
+      if (localStorage.getItem(tourDoneKey(id))) return;
+      if (localStorage.getItem('pm-setup-skipped-' + id)) return;
+      startTour();
     }
 
     function hideAuthError(id) {
@@ -4147,15 +4276,16 @@
       var url = '/api/events/subscribe';
       if (token) url += '?token=' + encodeURIComponent(token);
       var es = new EventSource(url);
+      var refreshTimer = null;
       es.onmessage = function (e) {
         try {
           var data = JSON.parse(e.data);
-          if (data.type !== 'connected') {
-            setTimeout(function () { loadAllData().then(function () { refreshCurrentView(); }); }, 300);
-          }
+          if (data.type === 'connected') return;
+          clearTimeout(refreshTimer);
+          refreshTimer = setTimeout(function () { loadAllData().then(function () { refreshCurrentView(); }); }, 500);
         } catch (err) {}
       };
-      es.onerror = function () { setTimeout(initSSE, 5000); };
+      es.onerror = function () { setTimeout(initSSE, 8000); };
     }
 
     function initNotificationsFromAPI() {
@@ -4658,8 +4788,9 @@
       initPremiumInteractions();
       initTooltips();
       initDailyGoals();
-      initSSE();
-      initNotificationsFromAPI();
+      var scheduleIdle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 900); };
+      scheduleIdle(function () { initSSE(); }, { timeout: 2500 });
+      setTimeout(initNotificationsFromAPI, 600);
       document.getElementById('notifications-btn')?.addEventListener('click', function (e) { e.stopPropagation(); toggleNotificationDropdown(); });
       document.getElementById('mark-all-read')?.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -4752,7 +4883,7 @@
     var onboarding = document.getElementById('onboarding');
     if (Auth.isAuthenticated()) {
       showAuth('auth-loading');
-      var minSignInTime = new Promise(function (resolve) { setTimeout(resolve, 2000); });
+      var minSignInTime = new Promise(function (resolve) { setTimeout(resolve, 350); });
       loadAllData().then(function () {
         return minSignInTime;
       }).then(function () {

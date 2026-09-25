@@ -7,7 +7,9 @@ var authToken = sessionStorage.getItem('pm-token') || localStorage.getItem('pm-t
 var tokenStorage = localStorage.getItem('pm-token') ? 'local' : (sessionStorage.getItem('pm-token') ? 'session' : null);
 
 var pending = {};
-var useMock = localStorage.getItem('pm-use-mock') === 'true';
+
+if (authToken) localStorage.removeItem('pm-use-mock');
+var useMock = !authToken && localStorage.getItem('pm-use-mock') === 'true';
 
 function camelize(str) {
   return str.replace(/_([a-z])/g, function (_, c) { return c.toUpperCase(); });
@@ -360,12 +362,6 @@ function apiFetch(path, options) {
       window.location.reload();
       throw new Error('Session expired');
     }
-    if (res.status === 503) {
-      console.warn("DB offline. Auto-activating client-side offline mock mode.");
-      localStorage.setItem('pm-use-mock', 'true');
-      window.location.reload();
-      throw new Error('Database offline');
-    }
     if (!res.ok) {
       return res.json().then(function (body) {
         var err = new Error(body.error || 'Request failed');
@@ -379,15 +375,6 @@ function apiFetch(path, options) {
       });
     }
     return res.json().then(camelizeKeys);
-  }).catch(function (err) {
-    // Also fallback if fetch fails completely (network error)
-    if (err.message === 'Failed to fetch' || err.status === 503) {
-      console.warn("Server unavailable. Auto-activating client-side offline mock mode.");
-      localStorage.setItem('pm-use-mock', 'true');
-      window.location.reload();
-      return;
-    }
-    throw err;
   });
 
   if (cacheKey) {

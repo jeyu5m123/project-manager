@@ -56,6 +56,8 @@ function ensureDb() {
   if (!dbReady) {
     dbReady = (async function () {
       const { default: db } = await import('./db/index.js');
+      const { rows } = await db.query("SELECT to_regclass('public.users') AS table_name");
+      if (rows[0] && rows[0].table_name) return;
       await db.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
       const fs = await import('fs');
       const schema = fs.readFileSync(new URL('./db/schema.sql', import.meta.url), 'utf-8');
