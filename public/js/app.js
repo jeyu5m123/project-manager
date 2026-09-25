@@ -4279,7 +4279,10 @@
 
     function setAuthLoading(btnId, loading) {
       var btn = document.getElementById(btnId);
-      if (btn) { btn.disabled = loading; btn.textContent = loading ? 'Please wait...' : btn.dataset.originalText || btn.textContent; }
+      if (!btn) return;
+      if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Please wait...' : btn.dataset.originalText;
     }
 
     function initPremiumInteractions() {

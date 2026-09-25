@@ -352,6 +352,13 @@ function apiFetch(path, options) {
     fetchOptions.body = options.body;
   }
 
+  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timeoutId = null;
+  if (controller) {
+    fetchOptions.signal = controller.signal;
+    timeoutId = setTimeout(function () { controller.abort(); }, 20000);
+  }
+
   var cacheKey = options.method === 'GET' && path;
   if (cacheKey && pending[cacheKey]) {
     return pending[cacheKey];
@@ -381,6 +388,17 @@ function apiFetch(path, options) {
       });
     }
     return res.json().then(camelizeKeys);
+  }).then(function (value) {
+    if (timeoutId) clearTimeout(timeoutId);
+    return value;
+  }, function (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (err && err.name === 'AbortError') {
+      var timeoutErr = new Error('Request timed out. The server or database did not respond.');
+      timeoutErr.status = 504;
+      throw timeoutErr;
+    }
+    throw err;
   });
 
   if (cacheKey) {
